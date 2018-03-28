@@ -267,8 +267,10 @@ public:
 	Image<unsigned short> GetDepth()
 	{ 
 		if (filein.is_open()) return GetFileDepth(); 
-		rs2::frameset frames = pipe.wait_for_frames();
-		rs2::frame frame = frames.first(rs2_stream::RS2_STREAM_DEPTH);
+		auto frames = pipe.wait_for_frames();
+		rs2::align align = rs2::align(RS2_STREAM_COLOR); // Create alignment processing block between a depth image and color image
+		auto aligned = align.process(frames); // Get processed aligned frame
+		rs2::frame frame = aligned.first(rs2_stream::RS2_STREAM_DEPTH);
 		auto rawdepth = (uint16_t  *)frame.get_data();
 		//return (enable_filter_depth)? ((dev->get_stream_mode_count(rs::stream::infrared2))?FilterDS4(rawdepth):FilterIvy(rawdepth)): ToImage(rawdepth);  // filter is r200 specific TODO: dev->get_stream_mode_count for librealsense2 static_cast<int>(RS2_STREAM_COUNT)
 		return (enable_filter_depth) ? FilterIvy(rawdepth) : ToImage(rawdepth);  // filter is r200 specific 
@@ -295,6 +297,19 @@ public:
 		//fisheye.raster = std::vector<unsigned char>(data, data + product(fisheye.dim()));
 		return fisheye;
 	}
+	float get_depth_scale(rs2::device dev)
+	{
+		// Go over the device's sensors
+		for (rs2::sensor& sensor : dev.query_sensors())
+		{
+			// Check if the sensor if a depth sensor
+			if (rs2::depth_sensor dpt = sensor.as<rs2::depth_sensor>())
+			{
+				return dpt.get_depth_scale();
+			}
+		}
+		throw std::runtime_error("Device does not have a depth sensor");
+	}
 	inline bool Init()
 	{
 		// Using the context we can get all connected devices in a device list
@@ -314,8 +329,8 @@ public:
 		//Add desired streams to configuration
 		cfg.enable_stream(rs2_stream::RS2_STREAM_DEPTH, 640, 480, rs2_format::RS2_FORMAT_Z16, 60);
 		cfg.enable_stream(rs2_stream::RS2_STREAM_INFRARED, 640, 480, rs2_format::RS2_FORMAT_Y8, 60);
-		cfg.enable_stream(rs2_stream::RS2_STREAM_COLOR, 640, 480, rs2_format::RS2_FORMAT_BGR8, 60);
-
+		cfg.enable_stream(rs2_stream::RS2_STREAM_COLOR, 640, 480, rs2_format::RS2_FORMAT_RGB8, 60);
+		
 		// Comment off the below lines of configuration
 		//try
 		//{
@@ -396,10 +411,10 @@ public:
 
 		// Start streaming with the requested configuration
 		profile = pipe.start(cfg);
-		
+
 		auto depth_stream = profile.get_stream(rs2_stream::RS2_STREAM_DEPTH).as<rs2::video_stream_profile>();
 		zintrin = depth_stream.get_intrinsics();
-		//depth_scale = dev->get_depth_scale(); // Sensor should be streaming in order to get the depth_scale
+		depth_scale = get_depth_scale(profile.get_device()); // Sensor should be streaming in order to get the depth_scale
 		std::cout << "depth dims: " << this->dim() << "  " << this->focal() <<  "  " << this->principal()  << "  " << this->depth_scale << "  " << fov() << "  // w h fx fy px py depth_scale fovx fovy (degrees)\n"; 
 
 		auto color_stream = profile.get_stream(rs2_stream::RS2_STREAM_COLOR).as<rs2::video_stream_profile>();
