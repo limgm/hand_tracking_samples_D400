@@ -160,6 +160,7 @@ public:
 	rs2::device * dev;
 	rs2::pipeline pipe; // Declare RealSense pipeline, encapsulating the actual device and sensors
 	rs2::pipeline_profile profile;
+	rs2::frameset alignedFrames; // Set of frames aligned to depth viewport
 
 	std::ifstream                    filein;
 	std::vector<unsigned short>      fbuffer;
@@ -179,8 +180,7 @@ public:
 	{
 		if (!dev)
 			return;
-		rs2::frameset frames = pipe.wait_for_frames();
-		rs2::frame frame_ir = frames.first(rs2_stream::RS2_STREAM_INFRARED);
+		rs2::frame frame_ir = alignedFrames.first(rs2_stream::RS2_STREAM_INFRARED);
 		auto ir = (const uint8_t *)frame_ir.get_data();
 		cache_ir = Image<unsigned char>(dcamera(),std::vector<unsigned char>(ir,ir+product(dim())));
 		while (cache_ir.dim().x > image_width_max_allowed)
@@ -229,19 +229,6 @@ public:
 			filtered_depth = DownSampleFst(filtered_depth);
 		dp = filtered_depth.raster.data();
 
-		// Given a device, we can query its sensors using: TODO Check why can't get depthscale
-		//float depth_scale = 0.001f;
-		//rs2::frameset frames = pipe.wait_for_frames();
-		//std::vector<rs2::sensor> sensors = dev->query_sensors();
-		//for (rs2::sensor sensor : sensors)
-		//{
-		//	if (rs2::depth_sensor dpt_sensor = sensor.as<rs2::depth_sensor>())
-		//	{
-		//		// Sensor should be streaming in order to get the real value
-		//		depth_scale = dpt_sensor.get_depth_scale();
-		//	}
-		//}
-
 		auto constant_number = (unsigned short)(4.0f / depth_scale);
 		for (int i = 0; i < product(filtered_depth.dim()); i++)
 		{
@@ -268,19 +255,16 @@ public:
 	{ 
 		if (filein.is_open()) return GetFileDepth(); 
 		auto frames = pipe.wait_for_frames();
-		rs2::align align = rs2::align(RS2_STREAM_COLOR); // Create alignment processing block between a depth image and color image
-		auto aligned = align.process(frames); // Get processed aligned frame
-		rs2::frame frame = aligned.first(rs2_stream::RS2_STREAM_DEPTH);
+		rs2::align align = rs2::align(RS2_STREAM_DEPTH); // Spatially align all streams to depth viewport
+		alignedFrames = align.process(frames); // Get processed aligned frames
+		rs2::frame frame = alignedFrames.first(rs2_stream::RS2_STREAM_DEPTH);
 		auto rawdepth = (uint16_t  *)frame.get_data();
 		//return (enable_filter_depth)? ((dev->get_stream_mode_count(rs::stream::infrared2))?FilterDS4(rawdepth):FilterIvy(rawdepth)): ToImage(rawdepth);  // filter is r200 specific TODO: dev->get_stream_mode_count for librealsense2 static_cast<int>(RS2_STREAM_COUNT)
 		return (enable_filter_depth) ? FilterIvy(rawdepth) : ToImage(rawdepth);  // filter is r200 specific 
 	}
 	rs2::frame GetColorFrame()
 	{
-		rs2::frameset frames = pipe.wait_for_frames();
-		return frames.first(rs2_stream::RS2_STREAM_COLOR); // TODO: Check if the color is aligned to depth
-		//(const byte3*)dcam.dev->get_frame_data(rs::stream::color_aligned_to_depth)
-
+		return alignedFrames.first(rs2_stream::RS2_STREAM_COLOR);
 	}
 	std::string CamName() 
 	{ 
