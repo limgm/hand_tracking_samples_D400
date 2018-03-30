@@ -11,7 +11,12 @@ bld/
 [Bb]in/
 [Oo]bj/
 tmp/
-datasets/
+
+
+*.exe
+*.iobj
+*.ipdb
+*.pdb
 
 .vs/
 ipch/
