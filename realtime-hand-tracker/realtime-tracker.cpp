@@ -58,8 +58,8 @@ int main(int argc, char *argv[]) try
 		auto ccolor = Image<byte3>({ dcam.dim() });
 		if(dcam.dev) ccolor = Image<byte3>({ dcam.dim() }, (const byte3*)dcam.GetColorFrame().get_data());  // color data from camera
 
-		// Increase the max range from 0.7m to 1.5m for D400
-		auto dmesh  = DepthMesh(dimage, { 0.1f,1.5f }, 0.015f, 2);  // create points and triangle list from the depth data
+		// Possible to increase the max range from 0.7m to 1.5m for D400
+		auto dmesh  = DepthMesh(dimage, { 0.1f,0.7f }, 0.015f, 2);  // create points and triangle list from the depth data
 		auto dxmesh = MeshSmoothish(dmesh.first, dmesh.second);    // from 3d points to vertices will all the usual attributes
 		for (auto &v : dxmesh.verts)
 			v.texcoord = dimage.cam.projectz(v.position) / float2(dimage.cam.dim());

@@ -29,12 +29,13 @@ template <class T> void random_permutation(std::vector<T> &a)  // in place
 
 int main(int argc, char *argv[]) try
 {
+	bool useLeft = argc >= 2 ? true : false; // Added condition for left hand
 
 	GLWin glwin("Hand Pose Annotation - utility to record full skeletal pose and corresponding vid frames",800,600);
 	RSCam dcam;
 	dcam.Init();    // initialize realsense depth camera 
 
-	HandTracker htk;
+	HandTracker htk(useLeft);
 	htk.load_config("../config.json");
 
 	int  frameid    = 0;
@@ -135,15 +136,15 @@ int main(int argc, char *argv[]) try
 
 		// color data and depth based mesh
 
-		// Increase the max range from 0.7m to 1.5m for D400
-		auto dmesh  = DepthMesh(dimage, { 0.1f,1.5f }, 0.015f, 2);   // points (just locations) and tris
+		// Possible to increase the max range from 0.7m to 1.5m for D400
+		auto dmesh  = DepthMesh(dimage, { 0.1f,0.7f }, 0.015f, 2);   // points (just locations) and tris
 		auto dxmesh = MeshSmoothish(dmesh.first, dmesh.second);      // vertices with vertex attributes
 		dxmesh.material = "rgbcam";
 		for (auto &v : dxmesh.verts)
 			v.texcoord = dimage.cam.projectz(v.position) / float2(dimage.cam.dim());   // generate texcoords based on camera intrinsics
 
-		// Increase the max range from 0.6m to 1.5m for D400
-		auto points = takesubsample(PointCloud(dimage, { 0.1f,1.5f }));
+		// Possible to increase the max range from 0.6m to 1.5m for D400
+		auto points = takesubsample(PointCloud(dimage, { 0.1f,0.6f }));
 		random_permutation(points);  // just a test, as far as i can tell this did not affect results
 		float error = 0;
 
@@ -200,7 +201,7 @@ int main(int argc, char *argv[]) try
 
 			glPushAttrib(GL_ALL_ATTRIB_BITS);
 			glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE); glEnable(GL_COLOR_MATERIAL); glColor3f(1, 1, 1);
-			glEnable(GL_LIGHTING); glEnable(GL_LIGHT0);
+			//glEnable(GL_LIGHTING); glEnable(GL_LIGHT0);
 			for (auto &m : bone_meshes)
 				MeshDraw(*m);
 			glPopAttrib();

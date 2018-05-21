@@ -263,10 +263,10 @@ struct render_scene
 			glColor3fv(v.color.xyz()), glVertex3fv(v.position);
 		glEnd();
 		glPushAttrib(GL_ALL_ATTRIB_BITS);
-		glEnable(GL_COLOR_MATERIAL);
-		glColor3f(1, 1, 1);
-		glEnable(GL_LIGHTING);
-		glEnable(GL_LIGHT0);
+		//glEnable(GL_COLOR_MATERIAL); // Commented off the lighting as when drawing left hand it will be dark
+		//glColor3f(1, 1, 1);
+		//glEnable(GL_LIGHTING);
+		//glEnable(GL_LIGHT0);
 		for (auto m : meshes)
 			MeshDraw(*m);
 		glPopAttrib();

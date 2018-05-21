@@ -344,9 +344,12 @@ inline Image<unsigned short> HandSegmentVR(const Image<unsigned short> &depth, i
 }
 
 
-PhysModel LoadHandModel()
+PhysModel LoadHandModel(bool useLeft = false) // Added condition for left hand
 {
-	PhysModel handmodel("../assets/model_hand.json");
+	char * jsonfile = NULL;
+	if (useLeft) jsonfile = "../assets/model_hand_left.json";
+	else jsonfile = "../assets/model_hand_right.json";
+	PhysModel handmodel(jsonfile);
 	for (unsigned int i = 2; i < handmodel.rigidbodies.size(); i++)  // this hand model init hack allows for more finger interpenetration.
 		for (auto &v : handmodel.rigidbodies[i].shapes[0].verts)     // pulling in the vertices used for the gjk shape-to-shape collision
 			v = v * float3(0.7f, 0.7f, 0.9f);                        // scale back x and y only  or perhaps a bit of z
@@ -524,7 +527,7 @@ struct HandTracker
 	float  full_reset_on_error = 0.6f;
 	bool   angles_only         = 0;
 	bool   always_take_cnn     = false;
-	float  drangey             = 1.5f;    // ignore anything beyond this distance  default 70cm Increase to 150cm for D400
+	float  drangey             = 0.7f;    // ignore anything beyond this distance default 70cm, possible to increase to 150cm for D400
 	int    showdepthmesh       = 1;
 	int    boundary_planes     = 1;
 	float  microforce          = 1.0f;
@@ -545,6 +548,7 @@ struct HandTracker
 	int    steps_unibody       = 3;
 	float  prev_frame_error    = 0.0f;
 	int    initializing        = 0;
+	bool   useLeft             = false; // Added condition for left hand
 
 	template<class F> void visit_fields(F f)
 	{
@@ -827,7 +831,8 @@ struct HandTracker
 		from_json(*this, js);
 	}
 
-	HandTracker() : handmodel(LoadHandModel()), othermodel(LoadHandModel()),       // two models as one might be used in 2nd thread
+	// Added condition for left hand
+	HandTracker(bool _useLeft = false) : useLeft(_useLeft), handmodel(LoadHandModel(useLeft)), othermodel(LoadHandModel(useLeft)), // two models as one might be used in 2nd thread
 		cnn(PoseInitializerCNN("../assets/handposedd.cnnb")),          // may want to train cnn for specific camera and use case
 		vanity_bones(load_bone_meshes("../assets/vanity_bones.json")), // currently in rb com space 
 		cnn_input(int2(64, 64), 0.0f),

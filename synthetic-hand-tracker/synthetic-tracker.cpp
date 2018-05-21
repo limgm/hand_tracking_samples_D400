@@ -36,7 +36,7 @@
 #include "../include/physmodel.h"
 #include "../include/handtrack.h"  
 
-std::vector<std::vector<Pose>> LoadAnimBank(std::string filename, size_t pose_array_size)
+std::vector<std::vector<Pose>> LoadAnimBank(std::string filename, size_t pose_array_size, bool leftHand = false) // Added condition for left hand
 {
 	std::vector<std::vector<Pose>> animbank;
 	std::ifstream pfile(filename);
@@ -48,7 +48,15 @@ std::vector<std::vector<Pose>> LoadAnimBank(std::string filename, size_t pose_ar
 		std::vector<Pose> pose(pose_array_size);
 		std::stringstream linestream(line);
 		for (auto &p : pose)
+		{
 			linestream >> p;
+			if (leftHand)
+			{
+				p.position.x = -p.position.x; // To mirror effect the position about the x axis
+				p.orientation.y = -p.orientation.y; // To mirror effect the rotation about the x axis
+				p.orientation.z = -p.orientation.z;
+			}
+		}
 		animbank.push_back(pose);
 	}
 	return animbank;
@@ -85,25 +93,27 @@ template<class T> inline std::vector<T> & FlipY(std::vector<T> &image, int2 dim)
 int main(int argc, const char **argv) try
 {
 	std::cout << "testing the hand tracking system using synthetically generated depth data.\n";
-	std::string afilename = argc >= 2 ? argv[1] : "../assets/animbank.pose";
+	bool useLeft = argc >= 2 ? true : false; // Added condition for left hand
+	std::string afilename = argc >= 3 ? argv[2] : "../assets/animbank.pose";
 
-	HandTracker htk;
+	HandTracker htk(useLeft);
 	htk.always_take_cnn = 0;
 	htk.microforce = 3.0f;   // since a lot of frames were dropped in the animation file, we increase the fitting strength to compensate
 	htk.mainthreadpasses = 3;
-	PhysModel fakehand = LoadHandModel();
+	PhysModel fakehand = LoadHandModel(useLeft);
 	for (auto &m : fakehand.sdmeshes)
 		m.hack = linalg::lerp(m.hack,float4(1),0.75f);  // reduce the hue on the fingers for visualization purposes
 
 	DCamera dcam({ 320,240 }, { 305,305 }, { 160,120 }, 0.001f);  // depth_scale = 0.001f;  // ivycam 0.000124987f;
 	float2 drange = { 0.05f, 0.85f }; // needs to be wider than what the segmentation uses  
 									  //auto animbank = LoadAnimBank("../hand_db_ivycam/hand_dirp_ivycam_2.pose", handmodel.rigidbodies.size());
-	auto animbank = LoadAnimBank(afilename, fakehand.rigidbodies.size());
+	auto animbank = LoadAnimBank(afilename, fakehand.rigidbodies.size(), useLeft); // Added condition for left hand
 
-	GLWin glwin("synthetic-hand-tracker   demonstrating hand pose estimation with synthetically generated depth data", 320+320+100*2+4, 900);  // should fit 1080 allowing window's borders, taskbar 
+	GLWin glwin("synthetic-hand-tracker demonstrating hand pose estimation with synthetically generated depth data", 320+320+100*2+4, 900);  // should fit 1080 allowing window's borders, taskbar 
 
 	bool   software_rasterizer = false ;   // for troubleshooting if opengl depth readback is ever an issue 
 	int    animate   = 1;
+	int    step      = 0;
 	float  viewdist  = 0.40f;  // distance opengl viewpoint away from area of focus   use mousewheel to zoom in and out
 	float  yaw       = 180.0f; // to spin the view for only the final hand tracking result rendering 
 	int    frameid   = 0;
@@ -125,8 +135,10 @@ int main(int argc, const char **argv) try
 		case 'q': case 27:  exit(0); break;  // ESC
 		case 'v': yaw = 180.0f; break;
 		case 'c': htk.always_take_cnn = !htk.always_take_cnn; break; 
-		case 'a': animate = !animate;        break;
-		case 'f': animate++; break;
+		case 'a': animate = !animate;       break;
+		case 'f': animate++;				break;
+		case 's': step = 1;                 break;
+		case 'd': step = -1;                break;
 		case 'r': software_rasterizer = !software_rasterizer; break;
 		default:
 			std::cout << "unassigned key (" << (int)key << "): '" << key << "'\n";
@@ -157,10 +169,10 @@ int main(int argc, const char **argv) try
 			render_scene scene({ { 0,0,0 },{ 1,0,0,0 } });
 			glMatrixMode(GL_PROJECTION); glLoadIdentity(); glMultMatrixf(GetSensorPerspectiveMatrix(dcam, drange));
 			glMatrixMode(GL_MODELVIEW);	glLoadIdentity(); glRotatef(180, 1, 0, 0);// gluLookAt(0, 0, 0, 0, 0, 1, 0, -1, 0);
-			glEnable(GL_COLOR_MATERIAL);
-			glColor3f(1, 1, 1);
-			glEnable(GL_LIGHTING);
-			glEnable(GL_LIGHT0);
+			//glEnable(GL_COLOR_MATERIAL);  // Commented off the lighting as when drawing left hand it will be dark
+			//glColor3f(1, 1, 1);
+			//glEnable(GL_LIGHTING);
+			//glEnable(GL_LIGHT0);
 			for (auto m : fakehand.GetMeshes(true))   // using the bones subd model for rendering 
 				MeshDraw(m);
 			glColor3f(1, 1, 0.5f);
@@ -236,7 +248,7 @@ int main(int argc, const char **argv) try
 			if (yaw != 180.0f)
 				glwirefrustumz(dimage.cam.deprojectextents(), { 0.15f,htk.drangey });  // shows the view volume cone of the virtual depth camera used to generate the synthetic depth
 			glColor3f(1, 1, 0.5f);
-			glwin.PrintString({ 0,0 }, " Resulting reconstructed hand pose from hand tracking system:");
+			glwin.PrintString({ 0,0 }, " Resulting reconstructed hand pose from hand tracking system (Tracking %s Hand):", useLeft ? "Left" : "Right");
 			glwin.PrintString({ 0,1 }, " use cnn results %s  [c] to toggle ", htk.always_take_cnn ? "always" : "only when leads to better fit");
 			if (animate!=1)
 				glwin.PrintString({ 0,3 }, "(a)nimate %s  speed=%d", (animate) ? "" : "paused",animate);
@@ -248,7 +260,8 @@ int main(int argc, const char **argv) try
 
 		glwin.SwapBuffers();
 
-		frameid += animate;
+		if (animate) { frameid += animate; }
+		else { frameid += step; step = 0; } // Added stepping into animation
 	}
 	return 0;
 }
