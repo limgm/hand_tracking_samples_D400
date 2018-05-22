@@ -72,11 +72,12 @@ int main(int argc, const char **argv) try
 	std::cout << "Hand Pose Data-Set Editor.\n";
 	std::cout << "use model to point cloud fitting to capture full pose\n";
 
+	std::string dfilename = argc >= 2 ? argv[1] : "../datasets/example/hand_data_example.rs";
+	bool useLeft = argc >= 3 ? true : false; // Added condition for left hand
 
-	HandTracker htk; 
+	HandTracker htk(useLeft);
 	float2 drange = { 0.20f, htk.drangey }; // in m   
 
-	std::string dfilename = argc >= 2 ? argv[1] : "../datasets/example/hand_data_example.rs";
 
 	for (int i = 2; i < argc; i++)
 		if (filesuffix(argv[i]) == ".rs" || filesuffix(argv[i]) == ".ir")

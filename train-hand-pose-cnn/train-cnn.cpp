@@ -55,7 +55,9 @@ int main(int argc, const char **argv) try
 {
 	std::cout << "Example CNN training program with heatmap visualizations.\nIt will likely take a very long time (hours) before seeing  results\n";
 
-	HandTracker htk;
+	bool useLeft = argc >= 3 ? true : false; // Added condition for left hand
+
+	HandTracker htk(useLeft);
 	float2 drange = { 0.20f, htk.drangey }; // in m   
 
 	std::future<std::vector<Frame>> thefuture;

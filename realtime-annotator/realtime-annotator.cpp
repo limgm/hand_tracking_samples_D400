@@ -79,6 +79,7 @@ int main(int argc, char *argv[]) try
 	{
 		switch (std::tolower(key))
 		{
+		case 'q': case 27:  exit(0); break;  // ESC
 		case '0':case '1':case '2': case'3': case'4': fingerhold ^= 1 << (key - 0x30);  std::cout << "fingerhold: " << fingerhold << std::endl;   break;
 		case 'y': tiepinkyringmid = !tiepinkyringmid; break;
 		case '-': case '_': if(!total_frames_saved)htk.scale(1.0f / 1.02f);  std::cout << "segment_scale " << htk.segment_scale << std::endl; break;

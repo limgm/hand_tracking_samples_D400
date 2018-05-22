@@ -33,15 +33,38 @@
 
 int main(int argc, char *argv[]) try
 {
+
 	GLWin glwin("htk - testing hand tracking system  using realsense depth camera input",640,360); // Set to a smaller window size 1280 720
 	RSCam dcam;
-	dcam.Init(argc==2?argv[1]:"");
-	HandTracker htk;
+	bool useLeft = false; // Added condition for left hand
+	if (argc == 3)
+	{
+		dcam.Init(argc==2?argv[1]:""); // Second param is the location of the file
+		useLeft = true; // Third param for indicating using left hand
+	}
+	else if (argc == 2)
+	{
+		if (*argv[1] == 'l') // User enter key 'l' (letter L) to indicate using left hand 
+		{
+			dcam.Init();
+			useLeft = true;
+		}
+		else 
+		{
+			dcam.Init(argc==2?argv[1]:""); // User only enter location of file
+		}
+	}
+	else
+	{
+		dcam.Init();
+	}
+	HandTracker htk(useLeft);
 	htk.always_take_cnn = false;  // when false the system will just use frame-to-frame when cnn result is not more accurate
 	glwin.keyboardfunc = [&](int key, int, int)
 	{
 		switch (std::tolower(key))
 		{
+		case 'q': case 27:  exit(0); break;  // ESC
 		case '+': case '=': htk.scale(1.02f       );  std::cout << "segment_scale " << htk.segment_scale << std::endl; break;  // make model hand larger
 		case '-': case '_': htk.scale(1.0f / 1.02f);  std::cout << "segment_scale " << htk.segment_scale << std::endl; break;  // make model hand smaller
 		case 'c': htk.always_take_cnn = !htk.always_take_cnn; break;
